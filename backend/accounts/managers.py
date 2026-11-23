@@ -1,4 +1,6 @@
 from django.contrib.auth.base_user import BaseUserManager
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 
 class CustomUserManager(BaseUserManager):
@@ -8,9 +10,13 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError('Email is required.')
 
-        email = self.normalize_email(email)
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise ValueError('Invalid email address.')
 
-        user = self.model(email=email,**extra_fields)
+        email = self.normalize_email(email.strip()).lower()
+        user = self.model(email=email, **extra_fields)
 
         user.set_password(password)
         user.save(using=self._db)
