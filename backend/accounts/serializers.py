@@ -1,4 +1,3 @@
-from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
@@ -90,7 +89,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
 
         password = validated_data.pop('password')
-
         user = CustomUser.objects.create_user(
             password=password,
             **validated_data
@@ -103,7 +101,28 @@ class RegisterSerializer(serializers.ModelSerializer):
 # LOGIN
 # --------------------------------
 
+
+
 class LoginSerializer(TokenObtainPairSerializer):
+
+    def validate(self, attrs):
+
+        data = super().validate(attrs)
+
+        data['user'] = UserSerializer(self.user).data
+
+        return data
+
+    def get_user(self, validated_data):
+
+        user = super().get_user(validated_data)
+
+        if not user.is_email_verified:
+            raise serializers.ValidationError(
+                'Please verify your email before logging in.'
+            )
+
+        return user
 
     @classmethod
     def get_token(cls, user):
@@ -115,18 +134,7 @@ class LoginSerializer(TokenObtainPairSerializer):
 
         return token
 
-    def validate(self, attrs):
 
-        data = super().validate(attrs)
-
-        if not self.user.is_email_verified:
-            raise serializers.ValidationError(
-                'Please verify your email before logging in.'
-            )
-
-        data['user'] = UserSerializer(self.user).data
-
-        return data
 
 
 # --------------------------------
