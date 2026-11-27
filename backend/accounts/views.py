@@ -23,9 +23,7 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
 )
-
 from .tokens import EmailVerificationToken
-
 from .throttles import (
     LoginThrottle,
     RegisterThrottle,
@@ -52,6 +50,7 @@ class RegisterView(APIView):
 
         user = serializer.save()
 
+
         # Generate verification token
         token = EmailVerificationToken.generate(user)
 
@@ -61,33 +60,38 @@ class RegisterView(APIView):
         )
 
         # Send verification email
-        send_mail(
-            subject='Verify your BookStore account',
+        try:
+            send_mail(
+                subject='Verify your BookStore account',
+                message=(
+                    f'Hello {user.first_name},\n\n'
+                    f'Please verify your email:\n'
+                    f'{verification_url}\n\n'
+                    f'This link expires in 24 hours.'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
 
-            message=(
-                f'Hello {user.first_name},\n\n'
-                f'Please verify your email:\n'
-                f'{verification_url}\n\n'
-                f'This link expires in 24 hours.'
-            ),
+            email_sent = True
 
-            from_email=settings.DEFAULT_FROM_EMAIL,
-
-            recipient_list=[user.email],
-
-            fail_silently=False,
-        )
+        except Exception:
+            email_sent = False
 
         return Response(
             {
                 'message': (
-                    'Registration successful. '
-                    'Please check your email.'
+                    'Registration successful. Please check your email.'
+                    if email_sent else
+                    'Registration successful, but verification email could not be sent. Please request another email.'
                 ),
+                'email_sent': email_sent,
                 'user': UserSerializer(user).data,
             },
             status=status.HTTP_201_CREATED
         )
+
 
 
 # ==========================================
@@ -141,7 +145,6 @@ class LogoutView(APIView):
                 {'error': 'Invalid or expired token.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
 
 # ==========================================
 # USER PROFILE
